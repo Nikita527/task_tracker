@@ -1,0 +1,96 @@
+version: '4.32'
+name: task_tracker
+
+services:
+  db:
+    container_name: db
+    image: postgres:13.0-alpine
+    restart: always
+    volumes:
+      - task_db_data:/var/lib/postgresql/data/
+    env_file:
+      - ../.env
+    ports:
+      - 5432:5432
+    networks:
+      - backend
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.14.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    env_file:
+      - ../.env
+    depends_on:
+      - db
+    networks:
+      - backend
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    env_file:
+      - ../.env
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    depends_on:
+      - db
+    networks:
+      - backend
+
+  backend:
+    build:
+      context: ..
+      dockerfile: tasks/Dockerfile
+    container_name: tasks_backend
+    restart: on-failure
+    depends_on:
+      - db
+      - rabbitmq
+      - elasticsearch
+    env_file:
+      - ../.env
+    ports:
+      - 8000:8000
+    networks:
+      - backend
+    volumes:
+      - static_backend:/app/tasks/staticfiles
+
+  flower:
+    image: mher/flower
+    command: celery --app=celery flower
+    env_file:
+      - ../.env
+    ports:
+      - "5555:5555"
+    depends_on:
+      - db
+      - rabbitmq
+      - backend
+    networks:
+      - backend
+
+  worker:
+    build:
+      context: ..
+      dockerfile: tasks/Dockerfile.celery
+    container_name: tasks_worker
+    command: celery --app=celery worker --loglevel=info
+    env_file:
+      - ../.env
+    depends_on:
+      - rabbitmq
+      - backend
+    networks:
+      - backend
+
+networks:
+  backend:
+
+volumes:
+  task_db_data:
+  static_backend:
