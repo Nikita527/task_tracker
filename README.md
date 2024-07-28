@@ -26,7 +26,12 @@
     docker-compose exec task_tracker-backend python load_test_data.py
 
 5. Примеры API запросов:
+
     API для управления задачами доступно по адресу http://localhost:8000/api/tasks/
+
+    Тестовые задачи можно выполнить в терминале backend:
+
+        docker-compose exec task_tracker-backend bash
 
     Создание задачи:
         curl -X POST "http://localhost:8000/api/tasks/" -H "Content-Type: application/json" -d '{
